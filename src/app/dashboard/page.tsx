@@ -27,7 +27,7 @@ export default function Dashboard() {
         <div className="bg-gray-800 p-6 rounded-lg border border-gray-700 shadow-md">
           <h2 className="text-sm font-medium text-gray-400 mb-1 uppercase tracking-wider">Profit Factor</h2>
           <p className="text-3xl font-bold text-white">1.85</p>
-          <p className="text-xs text-green-400 mt-2">Target: > 1.5</p>
+          <p className="text-xs text-green-400 mt-2">Target: &gt; 1.5</p>
         </div>
         <div className="bg-gray-800 p-6 rounded-lg border border-gray-700 shadow-md">
           <h2 className="text-sm font-medium text-gray-400 mb-1 uppercase tracking-wider">Max Drawdown</h2>

@@ -415,6 +415,7 @@ export default function AutoTrading() {
       )}
 
       {/* Manual Results & Execution Panel */}
+      {validSignals.length > 0 && (
         <div className="bg-gray-800 p-6 rounded-lg border border-gray-700 shadow-md">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-xl font-bold text-white">2. AI Market Analysis Log</h2>

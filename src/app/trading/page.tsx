@@ -28,7 +28,7 @@ export default function AutoTrading() {
     }
     setCheckingBalance(true);
     try {
-      const response = await fetch('http://localhost:8000/api/v1/trading/balance', {
+      const response = await fetch((process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000') + '/api/v1/trading/balance', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -86,7 +86,7 @@ export default function AutoTrading() {
       
       try {
           // 1. Sync state with Binance directly
-          const syncRes = await fetch('http://localhost:8000/api/v1/trading/sync', {
+          const syncRes = await fetch((process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000') + '/api/v1/trading/sync', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ platform, binance_api_key: binanceKey, binance_api_secret: binanceSecret })
@@ -101,7 +101,7 @@ export default function AutoTrading() {
           
           // 2. If no active trade, scan for new setups
           addLog("Scanning market for safe setups...");
-          const topTokensRes = await fetch('http://localhost:8000/api/v1/analysis/get-top-tokens', {
+          const topTokensRes = await fetch((process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000') + '/api/v1/analysis/get-top-tokens', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ platform, limit: 10 })
@@ -114,7 +114,7 @@ export default function AutoTrading() {
           // Fast scan
           for (const sym of tokens) {
               if (!botRunningRef.current) break; // Break if stopped
-              const scanRes = await fetch('http://localhost:8000/api/v1/analysis/scan-single', {
+              const scanRes = await fetch((process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000') + '/api/v1/analysis/scan-single', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ platform, symbol: sym })
@@ -128,7 +128,7 @@ export default function AutoTrading() {
                   // Auto Execute
                   addLog(`Executing Auto-Trade on ${sym} for $${amount}...`);
                   try {
-                      const execRes = await fetch('http://localhost:8000/api/v1/trading/execute-live-trade', {
+                      const execRes = await fetch((process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000') + '/api/v1/trading/execute-live-trade', {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
                           body: JSON.stringify({
@@ -175,7 +175,7 @@ export default function AutoTrading() {
     try {
       setProgressMsg("Fetching top market movers...");
       // 1. Get tokens
-      const topTokensRes = await fetch('http://localhost:8000/api/v1/analysis/get-top-tokens', {
+      const topTokensRes = await fetch((process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000') + '/api/v1/analysis/get-top-tokens', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ platform, limit: platform === "binance" ? 20 : 5 })
@@ -189,7 +189,7 @@ export default function AutoTrading() {
       
       const scanPromises = tokens.map(async (sym: string) => {
         try {
-          const scanRes = await fetch('http://localhost:8000/api/v1/analysis/scan-single', {
+          const scanRes = await fetch((process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000') + '/api/v1/analysis/scan-single', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ platform, symbol: sym })
@@ -254,7 +254,7 @@ export default function AutoTrading() {
     
     setExecuting(true);
     try {
-      const response = await fetch('http://localhost:8000/api/v1/trading/execute-live-trade', {
+      const response = await fetch((process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000') + '/api/v1/trading/execute-live-trade', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

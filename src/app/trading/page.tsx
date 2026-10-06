@@ -1,4 +1,5 @@
-"use client";
+'use client';
+import { API_BASE } from '../../lib/api';
 import React, { useState, useRef } from 'react';
 
 export default function AutoTrading() {
@@ -28,7 +29,7 @@ export default function AutoTrading() {
     }
     setCheckingBalance(true);
     try {
-      const response = await fetch((process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000') + '/api/v1/trading/balance', {
+      const response = await fetch((API_BASE) + '/api/v1/trading/balance', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -66,7 +67,7 @@ export default function AutoTrading() {
       }
       setIsAutoBotRunning(true);
       botRunningRef.current = true;
-      addLog("🤖 24/7 Auto-Trading Bot Started...");
+      addLog("ðŸ¤– 24/7 Auto-Trading Bot Started...");
       addLog(`Setting Trade Amount: $${amount}`);
       
       // Run once immediately, then loop
@@ -78,7 +79,7 @@ export default function AutoTrading() {
       setIsAutoBotRunning(false);
       botRunningRef.current = false;
       if (autoBotRef.current) clearInterval(autoBotRef.current);
-      addLog("🛑 Auto-Trading Bot Stopped.");
+      addLog("ðŸ›‘ Auto-Trading Bot Stopped.");
   };
   
   const runAutoBotCycle = async () => {
@@ -86,7 +87,7 @@ export default function AutoTrading() {
       
       try {
           // 1. Sync state with Binance directly
-          const syncRes = await fetch((process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000') + '/api/v1/trading/sync', {
+          const syncRes = await fetch((API_BASE) + '/api/v1/trading/sync', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ platform, binance_api_key: binanceKey, binance_api_secret: binanceSecret })
@@ -95,16 +96,16 @@ export default function AutoTrading() {
           
           if (syncData.status === 'success' && syncData.active) {
               const tr = syncData.trade;
-              addLog(`⏳ TRADE ACTIVE: ${tr.symbol} (${tr.side}) | Entry: ${tr.entry} | PNL: $${tr.pnl}. Waiting for Binance Auto-Close...`);
+              addLog(`â³ TRADE ACTIVE: ${tr.symbol} (${tr.side}) | Entry: ${tr.entry} | PNL: $${tr.pnl}. Waiting for Binance Auto-Close...`);
               return; // DO NOT SCAN for new trades until this one is closed
           }
           
           // 2. If no active trade, scan for new setups
           addLog("Scanning market for safe setups...");
-          const topTokensRes = await fetch((process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000') + '/api/v1/analysis/get-top-tokens', {
+          const topTokensRes = await fetch((API_BASE) + '/api/v1/analysis/get-top-tokens', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ platform, limit: 10 })
+            body: JSON.stringify({ platform, limit: 25 })
           });
           const topTokensData = await topTokensRes.json();
           const tokens = topTokensData.symbols || [];
@@ -114,7 +115,7 @@ export default function AutoTrading() {
           // Fast scan
           for (const sym of tokens) {
               if (!botRunningRef.current) break; // Break if stopped
-              const scanRes = await fetch((process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000') + '/api/v1/analysis/scan-single', {
+              const scanRes = await fetch((API_BASE) + '/api/v1/analysis/scan-single', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ platform, symbol: sym })
@@ -122,13 +123,13 @@ export default function AutoTrading() {
               const result = await scanRes.json();
               
               if (result.status === 'success' && result.decision === 'TRADE') {
-                  addLog(`🔥 PERFECT SIGNAL FOUND: ${sym} (${result.bias.toUpperCase()})`);
+                  addLog(`ðŸ”¥ PERFECT SIGNAL FOUND: ${sym} (${result.bias.toUpperCase()})`);
                   foundTrade = true;
                   
                   // Auto Execute
                   addLog(`Executing Auto-Trade on ${sym} for $${amount}...`);
                   try {
-                      const execRes = await fetch((process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000') + '/api/v1/trading/execute-live-trade', {
+                      const execRes = await fetch((API_BASE) + '/api/v1/trading/execute-live-trade', {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
                           body: JSON.stringify({
@@ -145,15 +146,15 @@ export default function AutoTrading() {
                       });
                       const execData = await execRes.json();
                       if (execData.status === 'success') {
-                          addLog(`✅ TRADE EXECUTED SUCCESSFULLY! TP/SL attached. The bot will wait for Binance to auto-close it in profit.`);
+                          addLog(`âœ… TRADE EXECUTED SUCCESSFULLY! TP/SL attached. The bot will wait for Binance to auto-close it in profit.`);
                           handleCheckBalance();
                           // Stop scanning for this cycle after 1 successful trade to avoid overtrading
                           break;
                       } else {
-                          addLog(`❌ Execution Failed: ${execData.message}`);
+                          addLog(`âŒ Execution Failed: ${execData.message}`);
                       }
                   } catch (e) {
-                      addLog(`❌ Network Error executing trade.`);
+                      addLog(`âŒ Network Error executing trade.`);
                   }
               }
           }
@@ -161,7 +162,7 @@ export default function AutoTrading() {
               addLog("No safe signals found this cycle. Waiting for next cycle...");
           }
       } catch (e) {
-          addLog("❌ Error connecting to server.");
+          addLog("âŒ Error connecting to server.");
       }
   };
 
@@ -175,7 +176,7 @@ export default function AutoTrading() {
     try {
       setProgressMsg("Fetching top market movers...");
       // 1. Get tokens
-      const topTokensRes = await fetch((process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000') + '/api/v1/analysis/get-top-tokens', {
+      const topTokensRes = await fetch((API_BASE) + '/api/v1/analysis/get-top-tokens', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ platform, limit: platform === "binance" ? 20 : 5 })
@@ -189,7 +190,7 @@ export default function AutoTrading() {
       
       const scanPromises = tokens.map(async (sym: string) => {
         try {
-          const scanRes = await fetch((process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000') + '/api/v1/analysis/scan-single', {
+          const scanRes = await fetch((API_BASE) + '/api/v1/analysis/scan-single', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ platform, symbol: sym })
@@ -254,7 +255,7 @@ export default function AutoTrading() {
     
     setExecuting(true);
     try {
-      const response = await fetch((process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000') + '/api/v1/trading/execute-live-trade', {
+      const response = await fetch((API_BASE) + '/api/v1/trading/execute-live-trade', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -375,14 +376,14 @@ export default function AutoTrading() {
               disabled={loading || executing}
               className="w-full py-4 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 text-white font-bold rounded shadow-lg text-lg transition duration-200 flex justify-center items-center border border-purple-400"
             >
-               🚀 START 24/7 FULL AUTO BOT
+               ðŸš€ START 24/7 FULL AUTO BOT
             </button>
           ) : (
             <button 
               onClick={stopAutoBot}
               className="w-full py-4 bg-red-600 hover:bg-red-700 text-white font-bold rounded shadow-lg text-lg transition duration-200 flex justify-center items-center border border-red-400 animate-pulse"
             >
-               🛑 STOP FULL AUTO BOT
+               ðŸ›‘ STOP FULL AUTO BOT
             </button>
           )}
         </div>
@@ -406,7 +407,7 @@ export default function AutoTrading() {
              </div>
              <div className="bg-black p-4 rounded h-64 overflow-y-auto font-mono text-sm border border-gray-800">
                 {botLogs.map((log, i) => (
-                    <div key={i} className={`mb-1 ${log.includes('🔥') || log.includes('✅') ? 'text-green-400 font-bold' : log.includes('❌') ? 'text-red-400' : 'text-gray-300'}`}>
+                    <div key={i} className={`mb-1 ${log.includes('ðŸ”¥') || log.includes('âœ…') ? 'text-green-400 font-bold' : log.includes('âŒ') ? 'text-red-400' : 'text-gray-300'}`}>
                         {log}
                     </div>
                 ))}
@@ -483,8 +484,8 @@ export default function AutoTrading() {
                <h3 className="font-bold text-lg mb-1 text-white">Execution Status:</h3>
                <p className={executionMessage.status === 'success' ? 'text-blue-400' : 'text-red-400'}>
                  {executionMessage.status === 'success' 
-                   ? `✅ Order Successfully Placed on ${platform.toUpperCase()}! Check your terminal.` 
-                   : `❌ Failed: ${executionMessage.message}`}
+                   ? `âœ… Order Successfully Placed on ${platform.toUpperCase()}! Check your terminal.` 
+                   : `âŒ Failed: ${executionMessage.message}`}
                </p>
             </div>
           )}
@@ -493,3 +494,5 @@ export default function AutoTrading() {
     </div>
   );
 }
+
+

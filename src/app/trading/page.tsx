@@ -53,6 +53,7 @@ export default function AutoTrading() {
 
   const [isAutoBotRunning, setIsAutoBotRunning] = useState(false);
   const botRunningRef = useRef(false);
+  const isCycleRunningRef = useRef(false);
   const [botLogs, setBotLogs] = useState<string[]>([]);
   const autoBotRef = useRef<any>(null);
   
@@ -67,7 +68,7 @@ export default function AutoTrading() {
       }
       setIsAutoBotRunning(true);
       botRunningRef.current = true;
-      addLog("ðŸ¤– 24/7 Auto-Trading Bot Started...");
+      addLog("🤖 24/7 Auto-Trading Bot Started...");
       addLog(`Setting Trade Amount: $${amount}`);
       
       // Run once immediately, then loop every 12 seconds
@@ -78,12 +79,14 @@ export default function AutoTrading() {
   const stopAutoBot = () => {
       setIsAutoBotRunning(false);
       botRunningRef.current = false;
+      isCycleRunningRef.current = false;
       if (autoBotRef.current) clearInterval(autoBotRef.current);
       addLog("🛑 Auto-Trading Bot Stopped.");
   };
   
   const runAutoBotCycle = async () => {
-      if (!botRunningRef.current) return;
+      if (!botRunningRef.current || isCycleRunningRef.current) return;
+      isCycleRunningRef.current = true;
       
       try {
           // 1. Sync state with Binance directly
@@ -97,9 +100,11 @@ export default function AutoTrading() {
           if (syncData.status === 'success' && syncData.active) {
               const tr = syncData.trade;
               const pnl = parseFloat(tr.pnl);
-              // ONLY CLOSE IN MASSIVE NET PROFIT: Target reached ($0.20+ net profit in pocket!)
-              // Roundtrip fees on $40 notional is ~$0.04. Closing at $0.20+ guarantees minimum +$0.16 net addition to wallet balance!
-              if (pnl >= 0.20) {
+              addLog(`⏳ ACTIVE TRADE: ${tr.symbol} (${tr.side}) | Entry: ${tr.entry} | PNL: $${tr.pnl}`);
+              
+              // ONLY CLOSE IN MASSIVE NET PROFIT: Target reached ($0.18+ net profit in pocket!)
+              // Roundtrip fees on $35 notional is ~$0.035. Closing at $0.18+ guarantees minimum +$0.14+ net addition to wallet balance!
+              if (pnl >= 0.18) {
                   addLog(`🎯 BIG NET PROFIT HIT! PNL +$${tr.pnl} | Closing ${tr.symbol} INSTANTLY!`);
                   try {
                       await fetch((API_BASE) + '/api/v1/trading/close-live-position', {
@@ -182,7 +187,9 @@ export default function AutoTrading() {
               addLog("All 25 pairs analyzed. No high-speed bounce ready this second. Re-checking in 12s...");
           }
       } catch (e) {
-          addLog("âŒ Error connecting to server.");
+          addLog("❌ Error connecting to server.");
+      } finally {
+          isCycleRunningRef.current = false;
       }
   };
 

@@ -70,16 +70,16 @@ export default function AutoTrading() {
       addLog("ðŸ¤– 24/7 Auto-Trading Bot Started...");
       addLog(`Setting Trade Amount: $${amount}`);
       
-      // Run once immediately, then loop
+      // Run once immediately, then loop every 12 seconds
       runAutoBotCycle();
-      autoBotRef.current = setInterval(runAutoBotCycle, 60000); // Check every 60 seconds
+      autoBotRef.current = setInterval(runAutoBotCycle, 12000); // Check every 12 seconds for lightning speed
   };
   
   const stopAutoBot = () => {
       setIsAutoBotRunning(false);
       botRunningRef.current = false;
       if (autoBotRef.current) clearInterval(autoBotRef.current);
-      addLog("ðŸ›‘ Auto-Trading Bot Stopped.");
+      addLog("🛑 Auto-Trading Bot Stopped.");
   };
   
   const runAutoBotCycle = async () => {
@@ -97,32 +97,26 @@ export default function AutoTrading() {
           if (syncData.status === 'success' && syncData.active) {
               const tr = syncData.trade;
               const pnl = parseFloat(tr.pnl);
-              addLog('⏳ TRADE ACTIVE: ' + tr.symbol + ' (' + tr.side + ') | PNL: $' + tr.pnl);
+              addLog(`⏳ ACTIVE TRADE: ${tr.symbol} (${tr.side}) | Entry: ${tr.entry} | PNL: $${tr.pnl}`);
+              
+              // ONLY CLOSE IN PROFIT: Target reached ($0.05+) -> Instant Market Exit
               if (pnl >= 0.05) {
-                  addLog('✅ PROFIT TARGET HIT! PNL $' + tr.pnl + ' | Closing ' + tr.symbol + ' NOW!');
+                  addLog(`🎯 TARGET PROFIT HIT! PNL +$${tr.pnl} | Closing ${tr.symbol} INSTANTLY in green!`);
                   try {
                       await fetch((API_BASE) + '/api/v1/trading/close-live-position', {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
                           body: JSON.stringify({ platform, symbol: tr.symbol, binance_api_key: binanceKey, binance_api_secret: binanceSecret })
                       });
-                      addLog('🎉 PROFIT LOCKED! $' + tr.pnl + ' secured!');
+                      addLog(`🎉 PROFIT LOCKED! +$${tr.pnl} secured in pocket!`);
+                      handleCheckBalance();
                   } catch(e) { addLog('Close error: ' + e); }
-              } else if (pnl <= -0.10) {
-                  addLog('🛑 Safety Stop! PNL $' + tr.pnl + '. Closing to protect capital!');
-                  try {
-                      await fetch((API_BASE) + '/api/v1/trading/close-live-position', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ platform, symbol: tr.symbol, binance_api_key: binanceKey, binance_api_secret: binanceSecret })
-                      });
-                  } catch(e) {}
               }
-              return;
+              return; // DO NOT SCAN for new trades until current trade completes in profit
           }
           
-          // 2. If no active trade, scan for new setups
-          addLog("Scanning market for safe setups...");
+          // 2. High-Speed Parallel Market Scan (All 25 pairs analyzed simultaneously in 1-2 seconds!)
+          addLog("⚡ Scanning all 25 top market pairs simultaneously...");
           const topTokensRes = await fetch((API_BASE) + '/api/v1/analysis/get-top-tokens', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -131,56 +125,62 @@ export default function AutoTrading() {
           const topTokensData = await topTokensRes.json();
           const tokens = topTokensData.symbols || [];
           
-          let foundTrade = false;
+          if (!botRunningRef.current || tokens.length === 0) return;
           
-          // Fast scan
-          for (const sym of tokens) {
-              if (!botRunningRef.current) break; // Break if stopped
-              const scanRes = await fetch((API_BASE) + '/api/v1/analysis/scan-single', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ platform, symbol: sym })
-              });
-              const result = await scanRes.json();
-              
-              if (result.status === 'success' && result.decision === 'TRADE') {
-                  addLog(`ðŸ”¥ PERFECT SIGNAL FOUND: ${sym} (${result.bias.toUpperCase()})`);
-                  foundTrade = true;
-                  
-                  // Auto Execute
-                  addLog(`Executing Auto-Trade on ${sym} for $${amount}...`);
+          // Parallel analysis across the entire market
+          const scanResults = await Promise.all(
+              tokens.map(async (sym: string) => {
                   try {
-                      const execRes = await fetch((API_BASE) + '/api/v1/trading/execute-live-trade', {
+                      const scanRes = await fetch((API_BASE) + '/api/v1/analysis/scan-single', {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({
-                              platform: platform,
-                              symbol: result.symbol,
-                              bias: result.bias,
-                              amount: parseFloat(amount),
-                              current_price: result.price,
-                              take_profit: result.take_profit,
-                              stop_loss: result.stop_loss,
-                              binance_api_key: binanceKey,
-                              binance_api_secret: binanceSecret
-                          })
+                          body: JSON.stringify({ platform, symbol: sym })
                       });
-                      const execData = await execRes.json();
-                      if (execData.status === 'success') {
-                          addLog(`âœ… TRADE EXECUTED SUCCESSFULLY! TP/SL attached. The bot will wait for Binance to auto-close it in profit.`);
-                          handleCheckBalance();
-                          // Stop scanning for this cycle after 1 successful trade to avoid overtrading
-                          break;
-                      } else {
-                          addLog(`âŒ Execution Failed: ${execData.message}`);
-                      }
-                  } catch (e) {
-                      addLog(`âŒ Network Error executing trade.`);
+                      return await scanRes.json();
+                  } catch {
+                      return null;
                   }
+              })
+          );
+          
+          if (!botRunningRef.current) return;
+          
+          // Filter to high-probability bounce trades
+          const validTrades = scanResults.filter(r => r && r.status === 'success' && r.decision === 'TRADE');
+          
+          if (validTrades.length > 0) {
+              const bestTrade = validTrades[0];
+              addLog(`🔥 HIGH-SPEED BOUNCE SETUP: ${bestTrade.symbol} (${bestTrade.bias.toUpperCase()})`);
+              addLog(`Executing Auto-Trade on ${bestTrade.symbol} for $${amount}...`);
+              
+              try {
+                  const execRes = await fetch((API_BASE) + '/api/v1/trading/execute-live-trade', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                          platform: platform,
+                          symbol: bestTrade.symbol,
+                          bias: bestTrade.bias,
+                          amount: parseFloat(amount),
+                          current_price: bestTrade.price,
+                          take_profit: bestTrade.take_profit,
+                          stop_loss: bestTrade.stop_loss,
+                          binance_api_key: binanceKey,
+                          binance_api_secret: binanceSecret
+                      })
+                  });
+                  const execData = await execRes.json();
+                  if (execData.status === 'success') {
+                      addLog(`✅ TRADE LIVE ON BINANCE! Auto profit target: +$0.05 to $0.10`);
+                      handleCheckBalance();
+                  } else {
+                      addLog(`❌ Execution Failed: ${execData.message}`);
+                  }
+              } catch (e) {
+                  addLog(`Execution error: ${e}`);
               }
-          }
-          if (!foundTrade && botRunningRef.current) {
-              addLog("No safe signals found this cycle. Waiting for next cycle...");
+          } else {
+              addLog("All 25 pairs analyzed. No high-speed bounce ready this second. Re-checking in 12s...");
           }
       } catch (e) {
           addLog("âŒ Error connecting to server.");

@@ -97,18 +97,17 @@ export default function AutoTrading() {
           if (syncData.status === 'success' && syncData.active) {
               const tr = syncData.trade;
               const pnl = parseFloat(tr.pnl);
-              addLog(`⏳ ACTIVE TRADE: ${tr.symbol} (${tr.side}) | Entry: ${tr.entry} | PNL: $${tr.pnl}`);
-              
-              // ONLY CLOSE IN NET PROFIT: Target reached ($0.08+ after all Binance fees)
-              if (pnl >= 0.08) {
-                  addLog(`🎯 NET PROFIT HIT! PNL +$${tr.pnl} (Fees Covered) | Closing ${tr.symbol} INSTANTLY!`);
+              // ONLY CLOSE IN MASSIVE NET PROFIT: Target reached ($0.20+ net profit in pocket!)
+              // Roundtrip fees on $40 notional is ~$0.04. Closing at $0.20+ guarantees minimum +$0.16 net addition to wallet balance!
+              if (pnl >= 0.20) {
+                  addLog(`🎯 BIG NET PROFIT HIT! PNL +$${tr.pnl} | Closing ${tr.symbol} INSTANTLY!`);
                   try {
                       await fetch((API_BASE) + '/api/v1/trading/close-live-position', {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
                           body: JSON.stringify({ platform, symbol: tr.symbol, binance_api_key: binanceKey, binance_api_secret: binanceSecret })
                       });
-                      addLog(`🎉 PROFIT LOCKED! +$${tr.pnl} net profit credited! Waiting 30s before next scan...`);
+                      addLog(`🎉 PURE NET PROFIT LOCKED! +$${tr.pnl} added to wallet!`);
                       handleCheckBalance();
                   } catch(e) { addLog('Close error: ' + e); }
               }

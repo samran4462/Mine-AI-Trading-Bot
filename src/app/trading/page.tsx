@@ -99,16 +99,16 @@ export default function AutoTrading() {
               const pnl = parseFloat(tr.pnl);
               addLog(`⏳ ACTIVE TRADE: ${tr.symbol} (${tr.side}) | Entry: ${tr.entry} | PNL: $${tr.pnl}`);
               
-              // ONLY CLOSE IN PROFIT: Target reached ($0.05+) -> Instant Market Exit
-              if (pnl >= 0.05) {
-                  addLog(`🎯 TARGET PROFIT HIT! PNL +$${tr.pnl} | Closing ${tr.symbol} INSTANTLY in green!`);
+              // ONLY CLOSE IN NET PROFIT: Target reached ($0.08+ after all Binance fees)
+              if (pnl >= 0.08) {
+                  addLog(`🎯 NET PROFIT HIT! PNL +$${tr.pnl} (Fees Covered) | Closing ${tr.symbol} INSTANTLY!`);
                   try {
                       await fetch((API_BASE) + '/api/v1/trading/close-live-position', {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
                           body: JSON.stringify({ platform, symbol: tr.symbol, binance_api_key: binanceKey, binance_api_secret: binanceSecret })
                       });
-                      addLog(`🎉 PROFIT LOCKED! +$${tr.pnl} secured in pocket!`);
+                      addLog(`🎉 PROFIT LOCKED! +$${tr.pnl} net profit credited! Waiting 30s before next scan...`);
                       handleCheckBalance();
                   } catch(e) { addLog('Close error: ' + e); }
               }

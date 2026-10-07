@@ -96,8 +96,29 @@ export default function AutoTrading() {
           
           if (syncData.status === 'success' && syncData.active) {
               const tr = syncData.trade;
-              addLog(`â³ TRADE ACTIVE: ${tr.symbol} (${tr.side}) | Entry: ${tr.entry} | PNL: $${tr.pnl}. Waiting for Binance Auto-Close...`);
-              return; // DO NOT SCAN for new trades until this one is closed
+              const pnl = parseFloat(tr.pnl);
+              addLog('⏳ TRADE ACTIVE: ' + tr.symbol + ' (' + tr.side + ') | PNL: $' + tr.pnl);
+              if (pnl >= 0.05) {
+                  addLog('✅ PROFIT TARGET HIT! PNL $' + tr.pnl + ' | Closing ' + tr.symbol + ' NOW!');
+                  try {
+                      await fetch((API_BASE) + '/api/v1/trading/close-live-position', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ platform, symbol: tr.symbol, binance_api_key: binanceKey, binance_api_secret: binanceSecret })
+                      });
+                      addLog('🎉 PROFIT LOCKED! $' + tr.pnl + ' secured!');
+                  } catch(e) { addLog('Close error: ' + e); }
+              } else if (pnl <= -0.10) {
+                  addLog('🛑 Safety Stop! PNL $' + tr.pnl + '. Closing to protect capital!');
+                  try {
+                      await fetch((API_BASE) + '/api/v1/trading/close-live-position', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ platform, symbol: tr.symbol, binance_api_key: binanceKey, binance_api_secret: binanceSecret })
+                      });
+                  } catch(e) {}
+              }
+              return;
           }
           
           // 2. If no active trade, scan for new setups
